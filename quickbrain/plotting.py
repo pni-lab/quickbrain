@@ -17,7 +17,7 @@ from nilearn.plotting import plot_surf, plot_surf_stat_map
 from nilearn.surface import vol_to_surf
 from scipy.ndimage import gaussian_filter
 
-from quickbrain._resources import get_curvature, get_mesh
+from quickbrain._resources import get_curvature, get_mesh, normalize_resolution
 
 
 def _make_figure(figsize, dpi=100) -> Figure:
@@ -463,7 +463,7 @@ def plot_brain(
     hemi: str = "left",
     view: str = "lateral",
     surf_type: str = "pial",
-    res: int = 10,
+    res: Union[int, str] = "low",
     vol_to_surf_radius: float = 3.0,
     overlay: str | Path | None = "default",
     overlay_linewidth: float = 1.0,
@@ -495,9 +495,9 @@ def plot_brain(
     surf_type : ``"pial"`` or ``"inflated"``, default ``"pial"``
         Volume-to-surface projection is always done on the **pial** geometry.
     Advanced options:
-    res : int in {1, …, 10}, default 3
-        Mesh resolution.
-    vol_to_surf_radius : float, default 10.0
+    res : ``1`` | ``10`` | ``"high"`` | ``"low"``, default ``"low"``
+        ``1`` / ``"high"`` = fine mesh; ``10`` / ``"low"`` = coarse (faster).
+    vol_to_surf_radius : float, default 3.0
     overlay : ``"default"``, path, or None, default ``"default"``
         SVG contour overlay.  Looks for
         ``overlays/{surf_type}/{side}_{view}.svg`` first, then
@@ -536,6 +536,8 @@ def plot_brain(
         raise ValueError(f"surf_type must be one of {_ALLOWED_SURF_TYPES}, got {surf_type!r}")
     if background not in _ALLOWED_BACKGROUNDS:
         raise ValueError(f"background must be one of {_ALLOWED_BACKGROUNDS}, got {background!r}")
+
+    res = normalize_resolution(res)
 
     # --- meshes ---------------------------------------------------------
     pial_coords, pial_faces = get_mesh(side=hemi, res=res, surf_type="pial")
@@ -680,7 +682,7 @@ def plot_brain(
                                transparent=transparent, pad_inches=0)
         return parent_fig
 
-    dpi = 100
+    dpi = 100 #todo
     img_w_in, img_h_in = iw / dpi, ih / dpi
     title_band_in = 0.18 if title is not None else 0.0
     out_fig = _make_figure(
