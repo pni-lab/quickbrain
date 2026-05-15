@@ -1,9 +1,13 @@
 version: 1
 project:
   title: quickbrain
+  subtitle: Fast, good-looking brain plots for Python
+  short_title: quickbrain
   description: Fast brain surface plotting for Python.
   license: GPL-3.0
   github: https://github.com/pni-lab/quickbrain
+  twitter: https://twitter.com/spisaktamas
+  open_access: true
   #jupyter: true
   toc:
     - file: index.md
@@ -12,6 +16,9 @@ project:
 site:
   title: quickbrain
   template: book-theme
+  options:
+    logo: fig/logo.png
+    logo_dark: fig/logo_dark.png
   actions:
     - title: Predictive Neuroscience Lab
       url: https://pni-lab.github.io/
