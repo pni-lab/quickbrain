@@ -18,7 +18,7 @@ The `quickbrain` Python package provides a compact Python API for creating beaut
 ### When to not use quickbrain
 
 - If you want high-resolution surface projections, and don't care about the outline contour and the cerebellum, use the `nilearn.surface.plot_surf_stat_map` function.
--If you want precise localization, don't use surface projection-based visualizations; use volumetric visualizations instead, e.g. `nilearn.plotting.plot_stat_map`.
+- If you want precise localization, don't use surface projection-based visualizations; use volumetric visualizations instead, e.g. `nilearn.plotting.plot_stat_map`.
 
 ::::{grid} 1 1 2 2
 
