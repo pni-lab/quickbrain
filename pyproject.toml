@@ -13,15 +13,8 @@ dependencies = [
   "nibabel",
   "nilearn",
   "numpy",
-  "pillow",
   "scipy",
   "svgpath2mpl",
-]
-
-[project.optional-dependencies]
-docs = [
-  "ipykernel",
-  "nbformat",
 ]
 
 [project.urls]

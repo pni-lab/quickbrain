@@ -55,20 +55,25 @@ PyPI package coming soon!
 
 ## Dependencies
 
-The `quickbrain` package depends on the following packages:
+`quickbrain` keeps its runtime dependencies intentionally small:
 
-- `nilearn`
 - `matplotlib`
+- `nibabel`
+- `nilearn`
 - `numpy`
 - `scipy`
-- `pandas`
+- `svgpath2mpl`
+
+The documentation site is built with MyST Markdown in GitHub Actions; MyST is
+installed there with `npm` and is not a Python package dependency of
+`quickbrain`.
 
 ## Example
 
 ```python
 from quickbrain import load_example_image, plot_brain
 image = load_example_image("pain_response")
-plot_brain(pain_response)
+plot_brain(image)
 ```
 
 :::{figure} #ex

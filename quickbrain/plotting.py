@@ -446,10 +446,13 @@ def _render_overlay_on_image(
     ov = np.array(fig_ov.canvas.buffer_rgba(), dtype=np.uint8)
     plt.close(fig_ov)
 
-    # Resize to exact bbox in case of rounding (bw×bh may differ by ±1 px)
+    # Resize to exact bbox in case of rounding (bw×bh may differ by ±1 px).
+    # Nearest-neighbour indexing is enough here because this is a rare
+    # one-pixel correction after Matplotlib has already rasterized the overlay.
     if ov.shape[0] != bh or ov.shape[1] != bw:
-        from PIL import Image
-        ov = np.array(Image.fromarray(ov).resize((bw, bh), Image.LANCZOS))
+        rows = np.linspace(0, ov.shape[0] - 1, bh).astype(int)
+        cols = np.linspace(0, ov.shape[1] - 1, bw).astype(int)
+        ov = ov[rows][:, cols]
 
     # Alpha-composite into the brain region
     mask = ov[:, :, 3] > 0
