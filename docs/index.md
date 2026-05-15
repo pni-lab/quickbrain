@@ -71,8 +71,9 @@ installed there with `npm` and is not a Python package dependency of
 ## Example
 
 ```python
-from quickbrain import load_example_image, plot_brain
-image = load_example_image("pain_response")
+import nibabel as nib
+from quickbrain import plot_brain
+image = nib.load("path/to/your/image.nii.gz")
 plot_brain(image)
 ```
 
