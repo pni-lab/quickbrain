@@ -1,0 +1,17 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+.venv/
+.matplotlib-cache/
+.nilearn_data/
+.nilearn_data_probe/
+
+build/
+dist/
+*.egg-info/
+.tmp-wheelhouse/
+
+docs/_build/
+resources/
+scripts/

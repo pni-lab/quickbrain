@@ -9,13 +9,13 @@ copies so the cache stays intact.
 from __future__ import annotations
 
 import functools
-from pathlib import Path
-from typing import Union
+from importlib.resources import as_file, files
+from typing import Literal, Union
 
 import numpy as np
 from nilearn.surface import load_surf_mesh
 
-_RESOURCE_DIR = Path(__file__).resolve().parent / "resources"
+_RESOURCE_PACKAGE = "quickbrain.resources"
 
 # Voxel sizes used when building meshes: 1 = high detail, 10 = low (fast).
 RES_HIGH = 1
@@ -27,6 +27,13 @@ _RES_ALIASES = {
     "low": RES_LOW,
     "1": RES_HIGH,
     "10": RES_LOW,
+}
+
+ExampleImage = Literal["pain_response", "left_hippocampus"]
+
+_EXAMPLE_IMAGES = {
+    "pain_response": "placebo_metaanalysis_full_pain_g_random.nii.gz",
+    "left_hippocampus": "harvardoxford-subcortical_prob_Left Hippocampus.nii.gz",
 }
 
 
@@ -54,6 +61,51 @@ _SIDES = ("left", "right")
 _TYPES = ("pial", "inflated")
 
 
+def _resource(name: str):
+    return files(_RESOURCE_PACKAGE).joinpath(name)
+
+
+def _resource_label(name: str) -> str:
+    return f"{_RESOURCE_PACKAGE.replace('.', '/')}/{name}"
+
+
+def load_example_image(name: ExampleImage = "pain_response"):
+    """Load a bundled example NIfTI image.
+
+    #### Parameters
+    - name : ``"pain_response"`` or ``"left_hippocampus"``
+        Example image to load.
+
+    #### Returns
+    - nibabel.spatialimages.SpatialImage
+        Loaded NIfTI image.
+
+    #### Example
+    ```python
+    from quickbrain import load_example_image, plot_brain
+    image = load_example_image("pain_response")
+    plot_brain(image, hemi="left", view="lateral", threshold=0.01)
+    ```
+    """
+    try:
+        filename = _EXAMPLE_IMAGES[name]
+    except KeyError as exc:
+        valid = ", ".join(repr(key) for key in _EXAMPLE_IMAGES)
+        raise ValueError(f"name must be one of {valid}; got {name!r}") from exc
+
+    resource = _resource(filename)
+    with as_file(resource) as path:
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"Packaged example image not found: {_resource_label(filename)}. "
+                "Install a wheel/source tree that includes quickbrain package data."
+            )
+
+        import nibabel as nib
+
+        return nib.load(path)
+
+
 def _check_params(side: str, res: int, surf_type: str) -> None:
     if side not in _SIDES:
         raise ValueError(f"side must be one of {_SIDES}, got {side!r}")
@@ -66,13 +118,16 @@ def _check_params(side: str, res: int, surf_type: str) -> None:
 @functools.lru_cache(maxsize=32)
 def _load_mesh(side: str, res: int, surf_type: str) -> tuple[np.ndarray, np.ndarray]:
     _check_params(side, res, surf_type)
-    path = _RESOURCE_DIR / f"mni152_side-{side}_res-{res}_type-{surf_type}.gii.gz"
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"Mesh not found: {path}\n"
-            "Run  python scripts/build_mni152_resources.py  first."
-        )
-    coords, faces = load_surf_mesh(str(path))
+    name = f"mni152_side-{side}_res-{res}_type-{surf_type}.gii.gz"
+    resource = _resource(name)
+    with as_file(resource) as path:
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"Packaged mesh not found: {_resource_label(name)}. "
+                "Install a wheel/source tree that includes quickbrain package data, "
+                "or rebuild the package resources before publishing."
+            )
+        coords, faces = load_surf_mesh(str(path))
     return np.asarray(coords, dtype=np.float32), np.asarray(faces, dtype=np.int32)
 
 
@@ -103,13 +158,16 @@ def _load_curvature(side: str, res: int) -> np.ndarray:
         raise ValueError(f"side must be one of {_SIDES}, got {side!r}")
     if res not in _AVAILABLE_RES:
         raise ValueError(f"res must be one of {_AVAILABLE_RES}, got {res!r}")
-    path = _RESOURCE_DIR / f"curvature_side-{side}_res-{res}.txt"
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"Curvature not found: {path}\n"
-            "Run  python scripts/build_mni152_resources.py  first."
-        )
-    return np.loadtxt(path, dtype=np.float32)
+    name = f"curvature_side-{side}_res-{res}.txt"
+    resource = _resource(name)
+    with as_file(resource) as path:
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"Packaged curvature map not found: {_resource_label(name)}. "
+                "Install a wheel/source tree that includes quickbrain package data, "
+                "or rebuild the package resources before publishing."
+            )
+        return np.loadtxt(path, dtype=np.float32)
 
 
 def get_curvature(side: str = "left", res: Union[int, str] = RES_LOW) -> np.ndarray:

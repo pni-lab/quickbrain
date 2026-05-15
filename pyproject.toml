@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quickbrain"
+version = "0.1.0"
+description = "Fast brain surface plotting for Python."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "matplotlib",
+  "nibabel",
+  "nilearn",
+  "numpy",
+  "pillow",
+  "scipy",
+  "svgpath2mpl",
+]
+
+[project.optional-dependencies]
+docs = [
+  "ipykernel",
+  "nbformat",
+]
+
+[project.urls]
+Homepage = "https://github.com/pni-lab/quickbrain"
+Documentation = "https://pni-lab.github.io/quickbrain/"
+Source = "https://github.com/pni-lab/quickbrain"
+
+[tool.setuptools.packages.find]
+include = ["quickbrain*"]
+exclude = ["doc*", "resources*", "scripts*"]
+
+[tool.setuptools.package-data]
+"quickbrain.resources" = [
+  "*.gii.gz",
+  "*.nii.gz",
+  "*.txt",
+  "overlays/*.svg",
+  "overlays/*/*.svg",
+]

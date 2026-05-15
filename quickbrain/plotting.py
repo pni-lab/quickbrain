@@ -1,7 +1,9 @@
-"""quickbrain.plotting – one-call brain surface visualisation."""
+"""quickbrain.plotting – Python package for one-call brain surface visualisation."""
 
 from __future__ import annotations
 
+from importlib.abc import Traversable
+from importlib.resources import as_file, files
 import re
 from pathlib import Path
 from typing import Union
@@ -31,7 +33,7 @@ def _make_figure(figsize, dpi=100) -> Figure:
     FigureCanvasAgg(fig)
     return fig
 
-_OVERLAY_DIR = Path(__file__).resolve().parent / "resources" / "overlays"
+_OVERLAY_DIR = files("quickbrain.resources").joinpath("overlays")
 
 _ALLOWED_HEMIS = ("left", "right")
 _ALLOWED_VIEWS = ("lateral", "medial")
@@ -107,7 +109,7 @@ def _get_overlay_path(
     surf_type: str,
     side: str,
     view: str,
-) -> tuple[Path | None, bool]:
+) -> tuple[Path | Traversable | None, bool]:
     """Resolve overlay SVG path.
 
     Returns ``(path, mirror)`` where *mirror* is True when a
@@ -125,19 +127,19 @@ def _get_overlay_path(
     if overlay == "default":
         opposite = "right" if side == "left" else "left"
         other_surf = "inflated" if surf_type == "pial" else "pial"
-        candidates: list[tuple[Path, bool]] = [
+        candidates: list[tuple[Traversable, bool]] = [
             # Exact match
-            (_OVERLAY_DIR / surf_type / f"{side}_{view}.svg", False),
+            (_OVERLAY_DIR.joinpath(surf_type, f"{side}_{view}.svg"), False),
             # Other surf_type, same hemi
-            (_OVERLAY_DIR / other_surf / f"{side}_{view}.svg", False),
+            (_OVERLAY_DIR.joinpath(other_surf, f"{side}_{view}.svg"), False),
             # Shared (no surf_type), same hemi
-            (_OVERLAY_DIR / f"{side}_{view}.svg", False),
+            (_OVERLAY_DIR.joinpath(f"{side}_{view}.svg"), False),
             # Exact match, opposite hemi (mirror)
-            (_OVERLAY_DIR / surf_type / f"{opposite}_{view}.svg", True),
+            (_OVERLAY_DIR.joinpath(surf_type, f"{opposite}_{view}.svg"), True),
             # Other surf_type, opposite hemi (mirror)
-            (_OVERLAY_DIR / other_surf / f"{opposite}_{view}.svg", True),
+            (_OVERLAY_DIR.joinpath(other_surf, f"{opposite}_{view}.svg"), True),
             # Shared, opposite hemi (mirror)
-            (_OVERLAY_DIR / f"{opposite}_{view}.svg", True),
+            (_OVERLAY_DIR.joinpath(f"{opposite}_{view}.svg"), True),
         ]
         for cand, mirror in candidates:
             if cand.is_file():
@@ -178,9 +180,13 @@ def _transform_mpl_path(mpl_path: MplPath, mat: np.ndarray) -> MplPath:
     return MplPath(transformed, mpl_path.codes)
 
 
-def _parse_svg_paths(svg_path: Path) -> tuple[list, tuple[float, float, float, float] | None]:
+def _parse_svg_paths(svg_path: Path | Traversable) -> tuple[list, tuple[float, float, float, float] | None]:
     """Parse SVG with nested group transforms; return (paths, viewBox)."""
-    tree = ET.parse(svg_path)
+    if isinstance(svg_path, Path):
+        tree = ET.parse(svg_path)
+    else:
+        with as_file(svg_path) as path:
+            tree = ET.parse(path)
     root = tree.getroot()
 
     vb = root.get("viewBox")
@@ -261,6 +267,15 @@ def _axes_pos_to_pixels_raw(ax_pos, ih: int, iw: int) -> tuple[int, int, int, in
     return (max(y0, 0), min(y1, ih), max(x0, 0), min(x1, iw))
 
 
+def _display_bbox_to_pixels(bbox, ih: int, iw: int) -> tuple[int, int, int, int]:
+    """Display-coordinate Bbox → pixel ``(y0, y1, x0, x1)``."""
+    x0 = int(np.floor(bbox.x0))
+    x1 = int(np.ceil(bbox.x1))
+    y0 = int(np.floor(ih - bbox.y1))
+    y1 = int(np.ceil(ih - bbox.y0))
+    return (max(y0, 0), min(y1, ih), max(x0, 0), min(x1, iw))
+
+
 def _union_pixel_bboxes(
     *boxes: tuple[int, int, int, int],
 ) -> tuple[int, int, int, int]:
@@ -273,15 +288,14 @@ def _union_pixel_bboxes(
 
 def _tight_figure_crop_bbox(
     brain_pixel_bbox: tuple[int, int, int, int],
-    sibling_axis_positions: list,
+    sibling_pixel_bboxes: list[tuple[int, int, int, int]],
     ih: int,
     iw: int,
     pad_px: int = 3,
 ) -> tuple[int, int, int, int]:
     """Bounding box that tightly wraps brain + colorbars (drops nilearn margins)."""
     regions = [brain_pixel_bbox]
-    for pos in sibling_axis_positions:
-        regions.append(_axes_pos_to_pixels_raw(pos, ih, iw))
+    regions.extend(sibling_pixel_bboxes)
     y0, y1, x0, x1 = _union_pixel_bboxes(*regions)
     y0 = max(y0 - pad_px, 0)
     y1 = min(y1 + pad_px, ih)
@@ -478,52 +492,60 @@ def plot_brain(
 ) -> Figure:
     """Plot a statistical map on the MNI152 brain surface.
 
-    Parameters
-    ----------
-    stat_map : array-like, path-like, or nibabel image, optional
+    #### Parameters
+
+    - stat_map : array-like, path-like, or nibabel image, optional
         Per-vertex data, a path to a NIfTI volume, or a loaded ``nibabel``
         image.  Volumes are projected with ``nilearn.surface.vol_to_surf``.
         If *None*, only the background (curvature) is shown.
-    bg_map : ``"curvature"`` | float | ndarray | None, default ``"curvature"``
+    - bg_map : ``"curvature"`` | float | ndarray | None, default ``"curvature"``
         Background map.  ``"curvature"`` uses the curvature map.
         A float in ``[0, 1]`` produces a uniform grey background.
-    threshold : float or None, default None
+    - threshold : float or None, default None
         Stat-map values whose absolute value is below *threshold* are
         transparent.
-    hemi : ``"left"`` or ``"right"``, default ``"left"``
-    view : ``"lateral"`` or ``"medial"``, default ``"lateral"``
-    surf_type : ``"pial"`` or ``"inflated"``, default ``"pial"``
+    - hemi : ``"left"`` or ``"right"``, default ``"left"``
+    - view : ``"lateral"`` or ``"medial"``, default ``"lateral"``
+    - surf_type : ``"pial"`` or ``"inflated"``, default ``"pial"``
         Volume-to-surface projection is always done on the **pial** geometry.
-    Advanced options:
-    res : ``1`` | ``10`` | ``"high"`` | ``"low"``, default ``"low"``
+
+    #### Advanced options:
+
+    - res : ``1`` | ``10`` | ``"high"`` | ``"low"``, default ``"low"``
         ``1`` / ``"high"`` = fine mesh; ``10`` / ``"low"`` = coarse (faster).
-    vol_to_surf_radius : float, default 3.0
-    overlay : ``"default"``, path, or None, default ``"default"``
+    - vol_to_surf_radius : float, default 3.0
+    - overlay : ``"default"``, path, or None, default ``"default"``
         SVG contour overlay.  Looks for
         ``overlays/{surf_type}/{side}_{view}.svg`` first, then
         ``overlays/{side}_{view}.svg``.
-    overlay_linewidth : float, default 1.0
+    - overlay_linewidth : float, default 1.0
         Multiplier for the SVG stroke widths.  Values > 1 make the
         contours thicker, < 1 thinner.
-    background : ``"white"`` or ``"transparent"``, default ``"white"``
-    post_blur : float, default 3.0
+    - background : ``"white"`` or ``"transparent"``, default ``"white"``
+    - post_blur : float, default 3.0
         Pixel-space Gaussian blur (sigma in px) applied to the brain
         bounding box *after* rendering but *before* the SVG overlay.
         Title and colorbar are never blurred.  Set to 0 to disable.
-    axes : matplotlib ``Axes`` or None
+    - axes : matplotlib ``Axes`` or None
         Existing 3-D axes to draw into.  The composited result replaces
         the axes content.
-    figure : matplotlib ``Figure`` or None
-    title : str or None
-    colorbar : bool, default True
-    output_file : path-like or None
-    **kwargs
+    - figure : matplotlib ``Figure`` or None
+    - title : str or None
+    - colorbar : bool, default True
+    - output_file : path-like or None
+    - **kwargs
         Forwarded to ``nilearn.plotting.plot_surf_stat_map``.  Forbidden:
         ``surf_mesh``, ``engine``, ``title``.
 
-    Returns
-    -------
-    matplotlib.figure.Figure
+    #### Returns
+    - matplotlib.figure.Figure
+
+    #### Example
+    ```python
+    from quickbrain import load_example_image, plot_brain
+    image = load_example_image("pain_response")
+    plot_brain(image, hemi="left", view="lateral", threshold=0.01)
+    ```
     """
     bad = _NILEARN_FORBIDDEN_KWARGS & set(kwargs)
     if bad:
@@ -540,13 +562,8 @@ def plot_brain(
     res = normalize_resolution(res)
 
     # --- meshes ---------------------------------------------------------
-    pial_coords, pial_faces = get_mesh(side=hemi, res=res, surf_type="pial")
-    pial_mesh = (pial_coords, pial_faces)
-    n_vertices = pial_coords.shape[0]
-    display_mesh = (
-        pial_mesh if surf_type == "pial"
-        else get_mesh(side=hemi, res=res, surf_type=surf_type)
-    )
+    display_mesh = get_mesh(side=hemi, res=res, surf_type=surf_type)
+    n_vertices = display_mesh[0].shape[0]
 
     bg_arr = _resolve_bg_map(bg_map, side=hemi, res=res, n_vertices=n_vertices)
 
@@ -570,7 +587,10 @@ def plot_brain(
     )
 
     if stat_map is not None:
-        stat_arr = _resolve_stat_map(stat_map, pial_mesh, vol_to_surf_radius)
+        projection_mesh = display_mesh
+        if not isinstance(stat_map, np.ndarray) and surf_type != "pial":
+            projection_mesh = get_mesh(side=hemi, res=res, surf_type="pial")
+        stat_arr = _resolve_stat_map(stat_map, projection_mesh, vol_to_surf_radius)
         fig = plot_surf_stat_map(
             stat_map=stat_arr, bg_map=bg_arr, threshold=threshold,
             title=None, colorbar=colorbar,
@@ -605,11 +625,16 @@ def plot_brain(
 
     fig.canvas.draw()
     rgba = _rasterize_figure(fig, draw=False)
-    # Positions must be read before closing the figure.
-    sibling_positions = [a.get_position() for a in sibling_axes]
-    plt.close(fig)
-
     ih, iw = rgba.shape[:2]
+
+    # Tight boxes must be read before closing the figure.  Unlike axes
+    # positions, tight boxes include colorbar ticks and tick labels.
+    renderer = fig.canvas.get_renderer()
+    sibling_bboxes = [
+        _display_bbox_to_pixels(a.get_tightbbox(renderer), ih, iw)
+        for a in sibling_axes
+    ]
+    plt.close(fig)
 
     if brain_ax is not None:
         search_bbox = _brain_bbox_from_axes(brain_ax.get_position(), ih, iw)
@@ -659,7 +684,7 @@ def plot_brain(
 
     # Drop nilearn figure margins: keep only the tight brain region + colorbars.
     cy0, cy1, cx0, cx1 = _tight_figure_crop_bbox(
-        brain_pixel_bbox, sibling_positions, ih, iw,
+        brain_pixel_bbox, sibling_bboxes, ih, iw,
     )
     rgba = np.ascontiguousarray(rgba[cy0:cy1, cx0:cx1])
     ih, iw = rgba.shape[:2]
