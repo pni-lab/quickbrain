@@ -93,3 +93,12 @@ Bug reports and feature requests: https://github.com/pni-lab/quickbrain/issues
 
 The `quickbrain` package is built on top of the `nilearn` package, which provides a comprehensive set of tools for neuroimaging data analysis.
 The trick is that we don't need a high-resolution surface if we only want an overview of the whole-brain pattern, instead of detailed localization. Thus, the `quickbrain` package uses a custom-built low-resolution mesh (including the cerebellum!) and the `nilearn.surface.vol_to_surf` and the `nilearn.surface.plot_surf_stat_map` functions to project the statistical map onto the brain surface and plot the brain surface. This makes it lightning fast. But, low resolution means less details. So we put back the details by adding beautiful contour overlays, to guide the eye across sulci and gyri.
+
+## Developers, contributors and contact
+
+```{card} vibe-coded, cleaned, maintains
+:header: **Tamas Spisak**
+- Center for Translational Neuro- and Behavioral Sciences (C-TNBS), University Medicine Essen, Germany
+- orcid: 0000-0002-2942-0821
+- email: tamas.spisak@uk-essen.de
+```
