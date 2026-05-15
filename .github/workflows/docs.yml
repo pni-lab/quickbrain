@@ -37,14 +37,14 @@ jobs:
         run: python -m pip install --upgrade pip && python -m pip install -e ".[docs]"
 
       - name: Generate API documentation
-        run: python doc/generate_api_docs.py
+        run: python docs/generate_api_docs.py
 
       - name: Install MyST
         run: npm install -g mystmd
 
       - name: Build MyST site
         run: CI=1 myst build --html --ci
-        working-directory: doc
+        working-directory: docs
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -52,7 +52,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: doc/_build/html
+          path: docs/_build/html
 
   deploy:
     needs: build
